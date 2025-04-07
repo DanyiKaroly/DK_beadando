@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Text;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -18,69 +19,62 @@ namespace DK_beadando
         private Queue<Point> currentPath = new Queue<Point>();
         private Random random = new Random();
         public int gridSize = 35;
+        public int firstgen=0;
 
         public SimulationForm(Form1 form1)
         {
             _form1 = form1;
-
             InitializeComponent();
+
             this.panelGrid.Paint += new System.Windows.Forms.PaintEventHandler(this.panelGrid_Paint);
             this.KeyDown += new KeyEventHandler(SimulationForm_KeyDown);
-            this.KeyPreview = true;  // Győződj meg róla, hogy ez be van állítva
+            this.KeyPreview = true;
         }
 
         private void SimulationForm_KeyDown(object sender, KeyEventArgs e)
         {
-            int dx = 0, dy = 0;
-            int moveHappend = 0;
+            int oldX = Maze.member.position.x;
+            int oldY = Maze.member.position.y;
 
-if (e.KeyCode == Keys.W && IsValidMove(Maze.member.position.x, Maze.member.position.y - 1))
-{
-    moveHappend = 1;
-    dy--;
-}
-else if (e.KeyCode == Keys.S && IsValidMove(Maze.member.position.x, Maze.member.position.y + 1))
-{
-    moveHappend = 1;
-    dy++;
-}
-else if (e.KeyCode == Keys.A && IsValidMove(Maze.member.position.x - 1, Maze.member.position.y))
-{
-    moveHappend = 1;
-    dx--;
-}
-else if (e.KeyCode == Keys.D && IsValidMove(Maze.member.position.x + 1, Maze.member.position.y))
-{
-    moveHappend = 1;
-    dx++;
-}
+            int newX = oldX;
+            int newY = oldY;
 
-
-            if(moveHappend ==1)
+            if (e.KeyCode == Keys.W && IsValidMove(Maze.member.position.x, Maze.member.position.y - 1))
             {
-                int newX = Maze.member.position.x + dx;
-                int newY = Maze.member.position.y + dy;
-
-
-                // Rögzítjük az előző pozíciót, hogy csak azokat a cellákat frissítsük
-                int oldX = Maze.member.position.x;
-                int oldY = Maze.member.position.y;
-
-                // Frissítjük a member pozícióját
-                Maze.member.position.x = newX;
-                Maze.member.position.y = newY;
-                matrixk[oldX][oldY] = 0;
-                matrixk[newX][newY] = Maze.member.id;
-
-
-                // Frissítjük a grid-et, és csak az érintett cellákat rajzoljuk újra
-                Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
-                Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
-
-                panelGrid.Invalidate(newRect);
-                panelGrid.Invalidate(oldRect);
-                moveHappend = 0;
+                newY--;
+                PlayerMoved(oldX, oldY, newX, newY);
             }
+            else if (e.KeyCode == Keys.S && IsValidMove(Maze.member.position.x, Maze.member.position.y + 1))
+            {
+                newY++;
+                PlayerMoved(oldX, oldY, newX, newY);
+            }
+            else if (e.KeyCode == Keys.A && IsValidMove(Maze.member.position.x - 1, Maze.member.position.y))
+            {
+                newX--;
+                PlayerMoved(oldX, oldY, newX, newY);
+            }
+            else if (e.KeyCode == Keys.D && IsValidMove(Maze.member.position.x + 1, Maze.member.position.y))
+            {
+                newX++;
+                PlayerMoved(oldX, oldY, newX, newY);
+            }
+
+        }
+        private void PlayerMoved(int oldX, int oldY, int newX, int newY)
+        {
+
+            matrixk[oldX][oldY] = 0;
+
+            matrixk[newX][newY] = Maze.member.id;
+
+            Maze.member.position.x = newX;
+            Maze.member.position.y = newY;
+
+            Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
+            Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
+            panelGrid.Invalidate(oldRect);
+            panelGrid.Invalidate(newRect);
 
         }
 
@@ -208,7 +202,6 @@ else if (e.KeyCode == Keys.D && IsValidMove(Maze.member.position.x + 1, Maze.mem
             panelGrid.Invalidate(oldRect);
             panelGrid.Invalidate(newRect); */
         }
-
         private void panelGrid_Paint(object sender, PaintEventArgs e)
         {
 
@@ -216,99 +209,145 @@ else if (e.KeyCode == Keys.D && IsValidMove(Maze.member.position.x + 1, Maze.mem
 
             Pen gridPen = new Pen(Color.Black);
 
-            for (int i = 0; i <= Maze.matrix.width; i++)
+            if (firstgen == 0)
             {
-                for (int j = 0; j <= Maze.matrix.height; j++)
+                for (int i = 0; i <= Maze.matrix.width; i++)
                 {
-                    Rectangle cellRect = new Rectangle(i * gridSize, j * gridSize, gridSize, gridSize);
+                    for (int j = 0; j <= Maze.matrix.height; j++)
+                    {
+                        Rectangle cellRect = new Rectangle(i * gridSize, j * gridSize, gridSize, gridSize);
 
-                    if (matrixk[i][j] == 0)
-                    {
-                        g.FillRectangle(Brushes.White, cellRect);
-                        g.DrawRectangle(Pens.Black, cellRect);
-                    }
-                    if (matrixk[i][j] <= 10)
-                    {
-                        for (int r = 0; r < Maze.robots.Count; r++)
+                        if (matrixk[i][j] == 0)
                         {
-                            if (matrixk[i][j] == Maze.robots[r].id)
-                            {
-
-                                g.FillRectangle(Brushes.LightBlue, cellRect);
-                                g.DrawRectangle(Pens.Black, cellRect);
-
-                                string text = "R" + Maze.robots[r].id.ToString();
-                                var font = this.Font;
-                                SizeF textSize = g.MeasureString(text, font);
-                                PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
-                                                            cellRect.Y + (gridSize - textSize.Height) / 2);
-                                g.DrawString(text, font, Brushes.Black, textPos);
-                                break;
-                            }
+                            ZerokPaint(i, j, cellRect, g);
+                        }
+                        if (matrixk[i][j] <= 10)
+                        {
+                            RobotPaint(i, j, cellRect, g);
+                        }
+                        else if (matrixk[i][j] >= 200 && matrixk[i][j] < 900)
+                        {
+                            truckPaint(i, j, cellRect, g);
+                        }
+                        else if (matrixk[i][j] > 10 && matrixk[i][j] < 200)
+                        {
+                            ShelvesPaint(i, j, cellRect, g);
+                        }
+                        else if (matrixk[i][j] > 900)
+                        {
+                            PlayerPaint(i, j, cellRect, g);
                         }
                     }
-                    else if (matrixk[i][j] >= 200 && matrixk[i][j]<900)
+                }
+                firstgen = 1;
+            }
+            else
+            {
+                Rectangle clip = e.ClipRectangle;
+                int startX = clip.X / gridSize;
+                int startY = clip.Y / gridSize;
+                int endX = (clip.X + clip.Width) / gridSize;
+                int endY = (clip.Y + clip.Height) / gridSize;
+
+                for (int i = startX; i <= endX && i <= Maze.matrix.width; i++)
+                {
+                    for (int j = startY; j <= endY && j <= Maze.matrix.height; j++)
                     {
-                        for (int r = 0; r < Maze.trucks.Count; r++)
-                        {
-                            if (matrixk[i][j] == Maze.trucks[r].id)
-                            {
+                        Rectangle cellRect = new Rectangle(i * gridSize, j * gridSize, gridSize, gridSize);
+                        int cellValue = matrixk[i][j];
 
-                                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 153)), cellRect);
-                                g.DrawRectangle(Pens.Black, cellRect);
-
-                                string text = "T" + Maze.trucks[r].id.ToString();
-                                var font = this.Font;
-                                SizeF textSize = g.MeasureString(text, font);
-                                PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
-                                                            cellRect.Y + (gridSize - textSize.Height) / 2);
-                                g.DrawString(text, font, Brushes.Black, textPos);
-                                break;
-                            }
-                        }
-                    }
-                    else if (matrixk[i][j] > 10 && matrixk[i][j] < 200)
-                    {
-                        for (int r = 0; r < Maze.shelves.Count; r++)
-                        {
-                            if (matrixk[i][j] == Maze.shelves[r].id)
-                            {
-
-                                g.FillRectangle(new SolidBrush(Color.FromArgb(255, 153, 0)), cellRect);
-                                g.DrawRectangle(Pens.Black, cellRect);
-
-                                string text = "S" + Maze.shelves[r].id.ToString();
-                                var font = this.Font;
-                                SizeF textSize = g.MeasureString(text, font);
-                                PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
-                                                            cellRect.Y + (gridSize - textSize.Height) / 2);
-                                g.DrawString(text, font, Brushes.Black, textPos);
-                                break;
-                            }
-                        }
-                    }
-                    else if ( matrixk[i][j] > 900)
-                    {
-                            if (matrixk[i][j] == Maze.member.id)
-                            {
-
-                                g.FillRectangle(new SolidBrush(Color.FromArgb(144, 238, 144)), cellRect);
-                                g.DrawRectangle(Pens.Black, cellRect);
-
-                                string text = "P";
-                                var font = this.Font;
-                                SizeF textSize = g.MeasureString(text, font);
-                                PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
-                                                            cellRect.Y + (gridSize - textSize.Height) / 2);
-                                g.DrawString(text, font, Brushes.Black, textPos);
-                                break;
-                            }
-                        
+                        if (cellValue == 0)
+                            ZerokPaint(i, j, cellRect, g);
+                        else if (cellValue <= 10)
+                            RobotPaint(i, j, cellRect, g);
+                        else if (cellValue >= 200 && cellValue < 900)
+                            truckPaint(i, j, cellRect, g);
+                        else if (cellValue > 10 && cellValue < 200)
+                            ShelvesPaint(i, j, cellRect, g);
+                        else if (cellValue > 900)
+                            PlayerPaint(i, j, cellRect, g);
                     }
                 }
             }
         }
+        private void ZerokPaint(int i, int j, Rectangle cellRect, Graphics g)
+        {
+            g.FillRectangle(Brushes.White, cellRect);
+            g.DrawRectangle(Pens.Black, cellRect);
+        }
+        private void truckPaint(int i, int j, Rectangle cellRect, Graphics g)
+        {
+            for (int r = 0; r < Maze.trucks.Count; r++)
+            {
+                if (matrixk[i][j] == Maze.trucks[r].id)
+                {
 
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 153)), cellRect);
+                    g.DrawRectangle(Pens.Black, cellRect);
+
+                    string text = "T" + Maze.trucks[r].id.ToString();
+                    var font = this.Font;
+                    SizeF textSize = g.MeasureString(text, font);
+                    PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
+                                                cellRect.Y + (gridSize - textSize.Height) / 2);
+                    g.DrawString(text, font, Brushes.Black, textPos);
+                }
+            }
+        }
+
+        private void RobotPaint(int i, int j, Rectangle cellRect, Graphics g)
+        {
+            for (int r = 0; r < Maze.robots.Count; r++)
+            {
+                if (matrixk[i][j] == Maze.robots[r].id)
+                {
+
+                    g.FillRectangle(Brushes.LightBlue, cellRect);
+                    g.DrawRectangle(Pens.Black, cellRect);
+
+                    string text = "R" + Maze.robots[r].id.ToString();
+                    var font = this.Font;
+                    SizeF textSize = g.MeasureString(text, font);
+                    PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
+                                                cellRect.Y + (gridSize - textSize.Height) / 2);
+                    g.DrawString(text, font, Brushes.Black, textPos);
+                    break;
+                }
+            }
+        }
+        private void PlayerPaint(int i, int j, Rectangle cellRect, Graphics g)
+        {
+                g.FillRectangle(new SolidBrush(Color.FromArgb(144, 238, 144)), cellRect);
+                g.DrawRectangle(Pens.Black, cellRect);
+
+                string text = "P";
+                var font = this.Font;
+                SizeF textSize = g.MeasureString(text, font);
+                PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
+                                            cellRect.Y + (gridSize - textSize.Height) / 2);
+                g.DrawString(text, font, Brushes.Black, textPos);
+        }
+
+
+        private void ShelvesPaint(int i, int j, Rectangle cellRect, Graphics g)
+        {
+            for (int r = 0; r < Maze.shelves.Count; r++)
+            {
+                if (matrixk[i][j] == Maze.shelves[r].id)
+                {
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(255, 153, 0)), cellRect);
+                    g.DrawRectangle(Pens.Black, cellRect);
+
+                    string text = "S" + Maze.shelves[r].id.ToString();
+                    var font = this.Font;
+                    SizeF textSize = g.MeasureString(text, font);
+                    PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
+                                                cellRect.Y + (gridSize - textSize.Height) / 2);
+                    g.DrawString(text, font, Brushes.Black, textPos);
+                    break;
+                }
+            } 
+        }
         private void button1_Click(object sender, EventArgs e)
         {
             _form1.Location = this.Location;

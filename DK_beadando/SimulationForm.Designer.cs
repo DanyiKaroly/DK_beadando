@@ -47,9 +47,9 @@
             // 
             // panelGrid
             // 
-            panelGrid.Location = new Point(12, 3);
+            panelGrid.Location = new Point(4, 3);
             panelGrid.Name = "panelGrid";
-            panelGrid.Size = new Size(542, 496);
+            panelGrid.Size = new Size(550, 496);
             panelGrid.TabIndex = 2;
             // 
             // RobotMove
