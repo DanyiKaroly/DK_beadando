@@ -21,5 +21,6 @@ namespace DK_beadando
             this.Hide();
             newForm.Show();
         }
+
     }
 }
