@@ -29,6 +29,8 @@ namespace DK_beadando
             this.panelGrid.Paint += new System.Windows.Forms.PaintEventHandler(this.panelGrid_Paint);
             this.KeyDown += new KeyEventHandler(SimulationForm_KeyDown);
             this.KeyPreview = true;
+
+            RobotMove.Start();
         }
 
         private void SimulationForm_KeyDown(object sender, KeyEventArgs e)
@@ -168,39 +170,54 @@ namespace DK_beadando
             matrixk = grid;
         }
 
+        private bool fin = false;
+
         private void RobotMove_Tick(object sender, EventArgs e)
         {
-          /*  int oldX = Maze.robots[0].position.x;
-            int oldY = Maze.robots[0].position.y;
+            if (fin) return; // Ha kész, kilépünk
 
-            if (Maze.robots[0].position.x == Maze.trucks[0].position.x && Maze.robots[0].position.y == Maze.trucks[0].position.y)
+            int oldX = Maze.robots[9].position.x;
+            int oldY = Maze.robots[9].position.y;
+            int newX = oldX;
+            int newY = oldY;
+
+            if (IsValidMove(oldX, oldY - 1) && oldY > Maze.trucks[0].position.y)
             {
-                RobotMove.Stop();
-                return;
+                newY--;
             }
-            if (currentPath.Count == 0)
+            else if (IsValidMove(oldX, oldY + 1) && oldY < Maze.trucks[0].position.y)
             {
-                int waitTime = random.Next(1000, 5001);
-                RobotMove.Stop();
-                new Thread(() => {
-                Thread.Sleep(waitTime);
-                this.Invoke((MethodInvoker)delegate {
-                        RobotMove.Start();
-                        });
-                }).Start();
-                return;
+                newY++;
             }
-            
+            else if (IsValidMove(oldX - 1, oldY) && oldX > Maze.trucks[0].position.x)
+            {
+                newX--;
+            }
+            else if (IsValidMove(oldX + 1, oldY) && oldX < Maze.trucks[0].position.x)
+            {
+                newX++;
+            }
 
-            matrixk[oldX][oldY] = 0;
-            matrixk[newX][newY] = Maze.robots[0].id;
+            if (newX != oldX || newY != oldY)
+            {
+                Maze.robots[9].position.x = newX;
+                Maze.robots[9].position.y = newY;
 
-            int gridSize = 35;
-            Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
-            Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
+                matrixk[oldX][oldY] = 0;
+                matrixk[newX][newY] = Maze.robots[9].id;
 
-            panelGrid.Invalidate(oldRect);
-            panelGrid.Invalidate(newRect); */
+                Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
+                Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
+
+                panelGrid.Invalidate(oldRect);
+                panelGrid.Invalidate(newRect);
+            }
+
+            if (newX == Maze.trucks[0].position.x && newY == Maze.trucks[0].position.y)
+            {
+                fin = true;
+                RobotMove.Stop();
+            }
         }
         private void panelGrid_Paint(object sender, PaintEventArgs e)
         {
