@@ -36,6 +36,14 @@ namespace DK_beadando
     {
         public int id { get; set; }
         public Position position { get; set; }
+        public List<Targy> Targyak { get; set; } = new List<Targy>();
+
+    }
+
+    public class Targy
+    {
+        public int TargyId { get; set; }
+        public int Mennyiseg { get; set; }
     }
 
     public class Matrix

@@ -32,12 +32,13 @@
             button1 = new Button();
             panelGrid = new Panel();
             RobotMove = new System.Windows.Forms.Timer(components);
+            richTextBox1 = new RichTextBox();
             SuspendLayout();
             // 
             // button1
             // 
             button1.Font = new Font("Times New Roman", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 238);
-            button1.Location = new Point(593, 431);
+            button1.Location = new Point(557, 426);
             button1.Name = "button1";
             button1.Size = new Size(160, 59);
             button1.TabIndex = 1;
@@ -49,7 +50,7 @@
             // 
             panelGrid.Location = new Point(4, 3);
             panelGrid.Name = "panelGrid";
-            panelGrid.Size = new Size(550, 496);
+            panelGrid.Size = new Size(516, 496);
             panelGrid.TabIndex = 2;
             // 
             // RobotMove
@@ -57,11 +58,20 @@
             RobotMove.Interval = 1000;
             RobotMove.Tick += RobotMove_Tick;
             // 
+            // richTextBox1
+            // 
+            richTextBox1.Location = new Point(526, 12);
+            richTextBox1.Name = "richTextBox1";
+            richTextBox1.Size = new Size(224, 389);
+            richTextBox1.TabIndex = 4;
+            richTextBox1.Text = "";
+            // 
             // SimulationForm
             // 
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ClientSize = new Size(784, 511);
             ControlBox = false;
+            Controls.Add(richTextBox1);
             Controls.Add(panelGrid);
             Controls.Add(button1);
             DoubleBuffered = true;
@@ -78,5 +88,6 @@
         private Button button1;
         private Panel panelGrid;
         private System.Windows.Forms.Timer RobotMove;
+        private RichTextBox richTextBox1;
     }
 }

@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
 using DK_beadando;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace DK_beadando
 {
@@ -17,7 +18,6 @@ namespace DK_beadando
         private Form1 _form1;
         public int[][] matrixk;
         private Queue<Point> currentPath = new Queue<Point>();
-        private Random random = new Random();
         public int gridSize = 35;
         public int firstgen=0;
 
@@ -29,6 +29,7 @@ namespace DK_beadando
             this.panelGrid.Paint += new System.Windows.Forms.PaintEventHandler(this.panelGrid_Paint);
             this.KeyDown += new KeyEventHandler(SimulationForm_KeyDown);
             this.KeyPreview = true;
+
 
             RobotMove.Start();
         }
@@ -107,7 +108,8 @@ namespace DK_beadando
 
         private void InitializeMatrixFromData()
         {
-            int width = Maze.matrix.width;
+        Random rand = new Random();
+        int width = Maze.matrix.width;
             int height = Maze.matrix.height;
             int t = 0;
             int[][] grid = new int[width + 1][];
@@ -168,6 +170,27 @@ namespace DK_beadando
                 }
             }
             matrixk = grid;
+            foreach (var szekreny in Maze.shelves)
+            {
+                if (rand.NextDouble() < 0.2)
+                {
+                    int darabTargy = rand.Next(1, 4);
+                    for (int i = 0; i < darabTargy; i++)
+                    {
+                        var ujTargy = new Targy
+                        {
+                            TargyId = rand.Next(1, 10),
+                            Mennyiseg = rand.Next(1, 100)
+                        };
+
+                        szekreny.Targyak.Add(ujTargy);
+
+                        richTextBox1.AppendText(
+                            $"Szekrény {szekreny.id} - Tárgy: {ujTargy.TargyId}, Mennyiség: {ujTargy.Mennyiseg}\n");
+                    }
+                }
+            }
+
         }
 
         private bool fin = false;
@@ -218,6 +241,7 @@ namespace DK_beadando
                 fin = true;
                 RobotMove.Stop();
             }
+
         }
         private void panelGrid_Paint(object sender, PaintEventArgs e)
         {
