@@ -20,7 +20,8 @@
         "y": 12
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 2,
@@ -29,7 +30,8 @@
         "y": 12
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 3,
@@ -38,7 +40,8 @@
         "y": 12
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 4,
@@ -47,7 +50,8 @@
         "y": 12
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 5,
@@ -56,7 +60,8 @@
         "y": 12
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 6,
@@ -65,7 +70,8 @@
         "y": 11
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 7,
@@ -74,7 +80,8 @@
         "y": 11
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 8,
@@ -83,7 +90,8 @@
         "y": 11
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 9,
@@ -92,7 +100,8 @@
         "y": 11
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     },
     {
       "id": 10,
@@ -101,7 +110,8 @@
         "y": 11
       },
       "status": "active",
-      "RobotState": "idle"
+      "RobotState": "idle",
+      "batteryLevel": 0
     }
   ],
   "trucks": [
@@ -144,6 +154,88 @@
         "y": 9
       },
       "status": "active"
+    }
+  ],
+  "chargingpads": [
+    {
+      "id": 1001,
+      "position": {
+        "x": 1,
+        "y": 12
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1002,
+      "position": {
+        "x": 2,
+        "y": 12
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1003,
+      "position": {
+        "x": 3,
+        "y": 12
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1004,
+      "position": {
+        "x": 4,
+        "y": 12
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1005,
+      "position": {
+        "x": 5,
+        "y": 12
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1006,
+      "position": {
+        "x": 1,
+        "y": 11
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1007,
+      "position": {
+        "x": 2,
+        "y": 11
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1008,
+      "position": {
+        "x": 3,
+        "y": 11
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1009,
+      "position": {
+        "x": 4,
+        "y": 11
+      },
+      "status": "busy"
+    },
+    {
+      "id": 1010,
+      "position": {
+        "x": 5,
+        "y": 11
+      },
+      "status": "busy"
     }
   ],
   "shelves": [

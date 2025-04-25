@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace DK_beadando
 {
@@ -8,21 +9,35 @@ namespace DK_beadando
         public int x { get; set; }
         public int y { get; set; }
     }
-    public enum RobotState
+    public enum Robotstate
     {
-        Idle,
-        Moving,
-        Pickup,
-        Drop,
-        Charging,
-        Maintenance
+        idle,
+        moving,
+        pickup,
+        drop,
+        charging,
+        maintenance
+    }
+    public enum RobotStatus
+    {
+        active,
+        inactive,
+        error
+    }
+    public enum chargingpadstatus
+    {
+        Busy,
+        Free,
+        Error
     }
     public class Robot
     {
         public int id { get; set; }
         public Position position { get; set; }
-        public string status { get; set; }
-        public RobotState state { get; set; }
+        public RobotStatus status { get; set; }
+        public Robotstate RobotState { get; set; }
+        public int BatteryLevel { get; set; }
+
     }
 
     public class Truck
@@ -37,6 +52,13 @@ namespace DK_beadando
         public int id { get; set; }
         public Position position { get; set; }
         public List<Targy> Targyak { get; set; } = new List<Targy>();
+
+    }
+    public class Chargingpad
+    {
+        public int id { get; set; }
+        public Position position { get; set; }
+        public chargingpadstatus status { get; set; }
 
     }
 
@@ -60,9 +82,12 @@ namespace DK_beadando
     public class MazeData
     {
         public Matrix matrix { get; set; }
+        public List<Chargingpad> chargingpads { get; set; }
+
         public List<Robot> robots { get; set; }
         public List<Truck> trucks { get; set; }
         public List<Shelf> shelves { get; set; }
         public Member member { get; set; }
+
     }
 }

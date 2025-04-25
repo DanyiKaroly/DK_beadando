@@ -6,6 +6,7 @@ using System.Drawing.Text;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Windows.Forms;
 using DK_beadando;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
@@ -19,7 +20,7 @@ namespace DK_beadando
         public int[][] matrixk;
         private Queue<Point> currentPath = new Queue<Point>();
         public int gridSize = 35;
-        public int firstgen=0;
+        public int firstgen = 0;
 
         public SimulationForm(Form1 form1)
         {
@@ -84,7 +85,7 @@ namespace DK_beadando
         // Az IsValidMove ellenőrzi, hogy az új pozíció nem lép-e ki a mátrix határon, és hogy a cella szabad-e
         private bool IsValidMove(int x, int y)
         {
-            return x >= 0 && x <= Maze.matrix.width && y >= 0 && y <= Maze.matrix.height && matrixk[x][y] == 0;
+            return x >= 0 && x <= Maze.matrix.width && y >= 0 && y <= Maze.matrix.height && (matrixk[x][y] == 0 || matrixk[x][y] >= 1000);
         }
 
 
@@ -94,8 +95,13 @@ namespace DK_beadando
             if (File.Exists(jsonFilePath))
             {
                 string jsonContent = File.ReadAllText(jsonFilePath);
-                Maze = JsonSerializer.Deserialize<MazeData>(jsonContent);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
 
+                Maze = JsonSerializer.Deserialize<MazeData>(jsonContent, options);
                 InitializeMatrixFromData();
                 panelGrid.Invalidate();
             }
@@ -108,8 +114,8 @@ namespace DK_beadando
 
         private void InitializeMatrixFromData()
         {
-        Random rand = new Random();
-        int width = Maze.matrix.width;
+            Random rand = new Random();
+            int width = Maze.matrix.width;
             int height = Maze.matrix.height;
             int t = 0;
             int[][] grid = new int[width + 1][];
@@ -119,6 +125,7 @@ namespace DK_beadando
                 for (int j = 0; j <= height; j++)
                 {
                     t = 0;
+
                     if (t == 0)
                     {
                         foreach (var robot in Maze.robots)
@@ -126,6 +133,19 @@ namespace DK_beadando
                             if (i == robot.position.x && j == robot.position.y)
                             {
                                 grid[i][j] = robot.id;
+                                robot.BatteryLevel = rand.Next(1, 101);
+                                t = 1;
+                                break;
+                            }
+                        }
+                    }
+                    if (t == 0)
+                    {
+                        foreach (var chargingpad in Maze.chargingpads)
+                        {
+                            if (i == chargingpad.position.x && j == chargingpad.position.y)
+                            {
+                                grid[i][j] = chargingpad.id;
                                 t = 1;
                                 break;
                             }
@@ -158,14 +178,14 @@ namespace DK_beadando
                     if (t == 0)
                     {
                         var member = Maze.member;
-                        
-                            if (i == member.position.x && j == member.position.y)
-                            {
-                                grid[i][j] = member.id;
-                                t = 1;
-                                break;
-                            }
-                        
+
+                        if (i == member.position.x && j == member.position.y)
+                        {
+                            grid[i][j] = member.id;
+                            t = 1;
+                            break;
+                        }
+
                     }
                 }
             }
@@ -226,7 +246,19 @@ namespace DK_beadando
                 Maze.robots[9].position.x = newX;
                 Maze.robots[9].position.y = newY;
 
-                matrixk[oldX][oldY] = 0;
+                for(int i = 0; i < Maze.chargingpads.Count; i++)
+                {
+                    if (Maze.chargingpads[i].position.x == oldX && Maze.chargingpads[i].position.y == oldY)
+                    {
+                        matrixk[oldX][oldY] = Maze.chargingpads[i].id;
+                        break;
+                    }
+                    else
+                    {
+                        matrixk[oldX][oldY] = 0;
+                        
+                    }
+                }
                 matrixk[newX][newY] = Maze.robots[9].id;
 
                 Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
@@ -262,7 +294,7 @@ namespace DK_beadando
                         {
                             ZerokPaint(i, j, cellRect, g);
                         }
-                        if (matrixk[i][j] <= 10)
+                        else if (matrixk[i][j] <= 10)
                         {
                             RobotPaint(i, j, cellRect, g);
                         }
@@ -274,9 +306,13 @@ namespace DK_beadando
                         {
                             ShelvesPaint(i, j, cellRect, g);
                         }
-                        else if (matrixk[i][j] > 900)
+                        else if (matrixk[i][j] == 999)
                         {
                             PlayerPaint(i, j, cellRect, g);
+                        }
+                        else if (matrixk[i][j] >= 1000)
+                        {
+                            ChargingpadPaint(i, j, cellRect, g);
                         }
                     }
                 }
@@ -305,8 +341,10 @@ namespace DK_beadando
                             truckPaint(i, j, cellRect, g);
                         else if (cellValue > 10 && cellValue < 200)
                             ShelvesPaint(i, j, cellRect, g);
-                        else if (cellValue > 900)
+                        else if (cellValue == 999)
                             PlayerPaint(i, j, cellRect, g);
+                        else if (cellValue > 1000)
+                            ChargingpadPaint(i, j, cellRect, g);
                     }
                 }
             }
@@ -358,15 +396,15 @@ namespace DK_beadando
         }
         private void PlayerPaint(int i, int j, Rectangle cellRect, Graphics g)
         {
-                g.FillRectangle(new SolidBrush(Color.FromArgb(144, 238, 144)), cellRect);
-                g.DrawRectangle(Pens.Black, cellRect);
+            g.FillRectangle(new SolidBrush(Color.FromArgb(144, 238, 144)), cellRect);
+            g.DrawRectangle(Pens.Black, cellRect);
 
-                string text = "P";
-                var font = this.Font;
-                SizeF textSize = g.MeasureString(text, font);
-                PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
-                                            cellRect.Y + (gridSize - textSize.Height) / 2);
-                g.DrawString(text, font, Brushes.Black, textPos);
+            string text = "P";
+            var font = this.Font;
+            SizeF textSize = g.MeasureString(text, font);
+            PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
+                                        cellRect.Y + (gridSize - textSize.Height) / 2);
+            g.DrawString(text, font, Brushes.Black, textPos);
         }
 
 
@@ -387,7 +425,27 @@ namespace DK_beadando
                     g.DrawString(text, font, Brushes.Black, textPos);
                     break;
                 }
-            } 
+            }
+        }
+
+        private void ChargingpadPaint(int i, int j, Rectangle cellRect, Graphics g)
+        {
+            for (int r = 0; r < Maze.chargingpads.Count; r++)
+            {
+                if (matrixk[i][j] == Maze.chargingpads[r].id)
+                {
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(102, 178, 255)), cellRect);
+                    g.DrawRectangle(Pens.Black, cellRect);
+
+                    string text = "C" + Maze.shelves[r].id.ToString();
+                    var font = this.Font;
+                    SizeF textSize = g.MeasureString(text, font);
+                    PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
+                                                cellRect.Y + (gridSize - textSize.Height) / 2);
+                    g.DrawString(text, font, Brushes.Black, textPos);
+                    break;
+                }
+            }
         }
         private void button1_Click(object sender, EventArgs e)
         {
