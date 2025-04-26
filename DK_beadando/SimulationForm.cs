@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Forms;
 using DK_beadando;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace DK_beadando
@@ -91,6 +92,10 @@ namespace DK_beadando
 
         private void SimulationForm_Load(object sender, EventArgs e)
         {
+            Random rand = new Random();
+            int random;
+            Targy newitem = new Targy();
+
             string jsonFilePath = "input.json";
             if (File.Exists(jsonFilePath))
             {
@@ -109,8 +114,75 @@ namespace DK_beadando
             {
                 MessageBox.Show("A JSON fájl nem található: " + jsonFilePath);
             }
+
+            foreach (var truck in Maze.trucks)
+            {
+                Maze.tasks.Add(new Task
+                {
+                    TruckId = truck.id,
+                    Items = new List<Targy> { }
+                });
+
+                foreach (var shelf in Maze.shelves)
+                {
+                    foreach (var item in shelf.Targyak)
+                    {
+                        if (rand.NextDouble() < 0.5)
+                        {
+                            if (!Maze.tasks.Last().Items.Any(x => x.TargyId == item.TargyId))
+                            {
+                                newitem = new Targy
+                                {
+                                    TargyId = item.TargyId,
+                                    Mennyiseg = rand.Next(1, item.Mennyiseg + 1)
+                                };
+
+                                Maze.tasks.Last().Items.Add(newitem);
+                            }
+                        }
+                    }
+                }
+            }
+
+            AddTasksToRobots();
+            TasksPrint();
+
             RobotMove.Start();
         }
+        private void AddTasksToRobots()
+        {
+            int i = 0;
+            foreach (var robot in Maze.robots)
+            {
+                if (i < Maze.tasks.Count)
+                {
+                    robot.task = Maze.tasks[i];
+                    i++;
+                }
+                else
+                {
+                    robot.task = null;
+                }
+            }
+        }
+
+        private void TasksPrint()
+        {
+            foreach (var robot in Maze.robots)
+            {
+                if (robot.task != null)
+                {
+                    robot.task.Items = robot.task.Items.OrderBy(item => item.TargyId).ToList();
+                    richTextBox1.AppendText($"T{robot.task.TruckId}, R{robot.id}:\n");
+                    foreach (var RobotItem in robot.task.Items)
+                    {
+                        richTextBox1.AppendText($"\tItem: {RobotItem.TargyId}, Mennyiség: {RobotItem.Mennyiseg}\n");
+                    }
+                }
+                else { break; };
+            }
+        }
+
 
         private void InitializeMatrixFromData()
         {
@@ -217,63 +289,68 @@ namespace DK_beadando
 
         private void RobotMove_Tick(object sender, EventArgs e)
         {
-            if (fin) return; // Ha kész, kilépünk
-
-            int oldX = Maze.robots[9].position.x;
-            int oldY = Maze.robots[9].position.y;
-            int newX = oldX;
-            int newY = oldY;
-
-            if (IsValidMove(oldX, oldY - 1) && oldY > Maze.trucks[0].position.y)
+            foreach (var robot in Maze.robots)
             {
-                newY--;
-            }
-            else if (IsValidMove(oldX, oldY + 1) && oldY < Maze.trucks[0].position.y)
-            {
-                newY++;
-            }
-            else if (IsValidMove(oldX - 1, oldY) && oldX > Maze.trucks[0].position.x)
-            {
-                newX--;
-            }
-            else if (IsValidMove(oldX + 1, oldY) && oldX < Maze.trucks[0].position.x)
-            {
-                newX++;
-            }
-
-            if (newX != oldX || newY != oldY)
-            {
-                Maze.robots[9].position.x = newX;
-                Maze.robots[9].position.y = newY;
-
-                for(int i = 0; i < Maze.chargingpads.Count; i++)
+                if (robot.status == RobotStatus.active)
                 {
-                    if (Maze.chargingpads[i].position.x == oldX && Maze.chargingpads[i].position.y == oldY)
+                    if (fin) return;
+
+                    int oldX = robot.position.x;
+                    int oldY = robot.position.y;
+                    int newX = oldX;
+                    int newY = oldY;
+
+                    if (IsValidMove(oldX, oldY - 1) && oldY > Maze.trucks[0].position.y)
                     {
-                        matrixk[oldX][oldY] = Maze.chargingpads[i].id;
-                        break;
+                        newY--;
                     }
-                    else
+                    else if (IsValidMove(oldX, oldY + 1) && oldY < Maze.trucks[0].position.y)
                     {
-                        matrixk[oldX][oldY] = 0;
-                        
+                        newY++;
+                    }
+                    else if (IsValidMove(oldX - 1, oldY) && oldX > Maze.trucks[0].position.x)
+                    {
+                        newX--;
+                    }
+                    else if (IsValidMove(oldX + 1, oldY) && oldX < Maze.trucks[0].position.x)
+                    {
+                        newX++;
+                    }
+
+                    if (newX != oldX || newY != oldY)
+                    {
+                        robot.position.x = newX;
+                        robot.position.y = newY;
+
+                        for (int i = 0; i < Maze.chargingpads.Count; i++)
+                        {
+                            if (Maze.chargingpads[i].position.x == oldX && Maze.chargingpads[i].position.y == oldY)
+                            {
+                                matrixk[oldX][oldY] = Maze.chargingpads[i].id;
+                                break;
+                            }
+                            else
+                            {
+                                matrixk[oldX][oldY] = 0;
+
+                            }
+                        }
+                        matrixk[newX][newY] = robot.id;
+
+                        Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
+                        Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
+
+                        panelGrid.Invalidate(oldRect);
+                        panelGrid.Invalidate(newRect);
+                    }
+
+                    if (newX == Maze.trucks[0].position.x && newY == Maze.trucks[0].position.y)
+                    {
+                        fin = true;
+                        RobotMove.Stop();
                     }
                 }
-                matrixk[newX][newY] = Maze.robots[9].id;
-
-                Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
-                Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
-
-                panelGrid.Invalidate(oldRect);
-                panelGrid.Invalidate(newRect);
             }
-
-            if (newX == Maze.trucks[0].position.x && newY == Maze.trucks[0].position.y)
-            {
-                fin = true;
-                RobotMove.Stop();
-            }
-
         }
         private void panelGrid_Paint(object sender, PaintEventArgs e)
         {
@@ -436,8 +513,41 @@ namespace DK_beadando
                 {
                     g.FillRectangle(new SolidBrush(Color.FromArgb(102, 178, 255)), cellRect);
                     g.DrawRectangle(Pens.Black, cellRect);
+                    string text = "C";
+                    switch (Maze.chargingpads[r].id)
+                    {
+                        case 1001:
+                             text = text + "1";
+                            break;
+                        case 1002:
+                            text = text + "2";
+                            break;
+                        case 1003:
+                            text = text + "3";
+                            break;
+                        case 1004:
+                            text = text + "4";
+                            break;
+                        case 1005:
+                            text = text + "5";
+                            break;
+                        case 1006:
+                            text = text + "6";
+                            break;
+                        case 1007:
+                            text = text + "7";
+                            break;
+                        case 1008:
+                            text = text + "8";
+                            break;
+                        case 1009:
+                            text = text + "9";
+                            break;
+                        case 1010:
+                            text = text + "10";
+                            break;
+                    }
 
-                    string text = "C" + Maze.shelves[r].id.ToString();
                     var font = this.Font;
                     SizeF textSize = g.MeasureString(text, font);
                     PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,

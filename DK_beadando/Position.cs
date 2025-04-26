@@ -37,9 +37,14 @@ namespace DK_beadando
         public RobotStatus status { get; set; }
         public Robotstate RobotState { get; set; }
         public int BatteryLevel { get; set; }
+        public Task task { get; set; }
 
     }
-
+    public class Task
+    {
+        public int TruckId { get; set; }
+        public List<Targy> Items { get; set; } = new List<Targy>();
+    }
     public class Truck
     {
         public int id { get; set; }
@@ -83,11 +88,10 @@ namespace DK_beadando
     {
         public Matrix matrix { get; set; }
         public List<Chargingpad> chargingpads { get; set; }
-
         public List<Robot> robots { get; set; }
         public List<Truck> trucks { get; set; }
         public List<Shelf> shelves { get; set; }
         public Member member { get; set; }
-
+        public List<Task> tasks { get; set; } = new List<Task>();
     }
 }
