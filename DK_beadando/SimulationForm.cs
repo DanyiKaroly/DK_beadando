@@ -83,7 +83,12 @@ namespace DK_beadando
 
         }
 
-        // Az IsValidMove ellenőrzi, hogy az új pozíció nem lép-e ki a mátrix határon, és hogy a cella szabad-e
+        private void FindWay()
+        {
+
+        }
+
+
         private bool IsValidMove(int x, int y)
         {
             return x >= 0 && x <= Maze.matrix.width && y >= 0 && y <= Maze.matrix.height && (matrixk[x][y] == 0 || matrixk[x][y] >= 1000);
@@ -92,9 +97,7 @@ namespace DK_beadando
 
         private void SimulationForm_Load(object sender, EventArgs e)
         {
-            Random rand = new Random();
-            int random;
-            Targy newitem = new Targy();
+
 
             string jsonFilePath = "input.json";
             if (File.Exists(jsonFilePath))
@@ -114,7 +117,19 @@ namespace DK_beadando
             {
                 MessageBox.Show("A JSON fájl nem található: " + jsonFilePath);
             }
+        ShelfPrint();
+        TaskMaker();
+        AddTasksToRobots();
+        TasksPrint();
 
+        RobotMove.Start();
+        }
+
+        private void TaskMaker()
+        {
+            Random rand = new Random();
+            int random;
+            Targy newitem = new Targy();
             foreach (var truck in Maze.trucks)
             {
                 Maze.tasks.Add(new Task
@@ -143,11 +158,6 @@ namespace DK_beadando
                     }
                 }
             }
-
-            AddTasksToRobots();
-            TasksPrint();
-
-            RobotMove.Start();
         }
         private void AddTasksToRobots()
         {
@@ -166,6 +176,23 @@ namespace DK_beadando
             }
         }
 
+        private void ShelfPrint()
+        {
+            foreach(var szekreny in Maze.shelves)
+            {
+                if(szekreny.Targyak.Count != 0)
+                {
+                    szekreny.Targyak = szekreny.Targyak.OrderBy(item => item.TargyId).ToList();
+                    richTextBox1.AppendText($"Shelf: {szekreny.id}\n");
+                    foreach (var item in szekreny.Targyak)
+                    {
+                        richTextBox1.AppendText($"\tItem: {item.TargyId}, Mennyiség: {item.Mennyiseg}\n");
+                    }
+                }
+            }
+            richTextBox1.AppendText("--------------------------------------\n");
+
+        }
         private void TasksPrint()
         {
             foreach (var robot in Maze.robots)
@@ -277,81 +304,110 @@ namespace DK_beadando
 
                         szekreny.Targyak.Add(ujTargy);
 
-                        richTextBox1.AppendText(
-                            $"Szekrény {szekreny.id} - Tárgy: {ujTargy.TargyId}, Mennyiség: {ujTargy.Mennyiseg}\n");
                     }
                 }
             }
 
         }
 
-        private bool fin = false;
+        public Shelf SelectMostEfficientShelf(Robot robot, List<Shelf> shelves)
+        {
+            var needed = robot.task.Items.ToDictionary(x => x.TargyId, x => x.Mennyiseg);
 
+            Shelf bestShelf = null;
+            double bestScore = double.NegativeInfinity;
+
+            foreach (var shelf in shelves)
+            {
+                var available = shelf.Targyak
+                    .Where(t => needed.ContainsKey(t.TargyId))
+                    .Select(t => Math.Min(t.Mennyiseg, needed[t.TargyId]))
+                    .Sum();
+
+                if (available == 0) continue;
+
+                int dist = Math.Abs(robot.position.x - shelf.position.x)
+                         + Math.Abs(robot.position.y - shelf.position.y);
+
+                double score = available / (double)(dist + 1);
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestShelf = shelf;
+                }
+            }
+
+            return bestShelf;
+        }
         private void RobotMove_Tick(object sender, EventArgs e)
         {
-            foreach (var robot in Maze.robots)
+            foreach (var robot in Maze.robots.Where(r => r.status == RobotStatus.active && r.task != null))
             {
-                if (robot.status == RobotStatus.active)
+                var targetShelf = SelectMostEfficientShelf(robot, Maze.shelves);
+                if (targetShelf == null)
                 {
-                    if (fin) return;
+                    break;
+                }
 
-                    int oldX = robot.position.x;
-                    int oldY = robot.position.y;
-                    int newX = oldX;
-                    int newY = oldY;
+                var truck = Maze.trucks.FirstOrDefault(t => t.id == robot.task.TruckId);
+                if (truck == null)
+                    continue;
 
-                    if (IsValidMove(oldX, oldY - 1) && oldY > Maze.trucks[0].position.y)
-                    {
-                        newY--;
-                    }
-                    else if (IsValidMove(oldX, oldY + 1) && oldY < Maze.trucks[0].position.y)
-                    {
-                        newY++;
-                    }
-                    else if (IsValidMove(oldX - 1, oldY) && oldX > Maze.trucks[0].position.x)
-                    {
-                        newX--;
-                    }
-                    else if (IsValidMove(oldX + 1, oldY) && oldX < Maze.trucks[0].position.x)
-                    {
-                        newX++;
-                    }
+                int oldX = robot.position.x;
+                int oldY = robot.position.y;
+                int newX = oldX;
+                int newY = oldY;
 
-                    if (newX != oldX || newY != oldY)
-                    {
-                        robot.position.x = newX;
-                        robot.position.y = newY;
+                if (IsValidMove(oldX, oldY - 1) && oldY > targetShelf.position.y)
+                    newY--;
+                else if (IsValidMove(oldX, oldY + 1) && oldY < targetShelf.position.y)
+                    newY++;
+                else if (IsValidMove(oldX - 1, oldY) && oldX > targetShelf.position.x)
+                    newX--;
+                else if (IsValidMove(oldX + 1, oldY) && oldX < targetShelf.position.x)
+                    newX++;
+                else if (IsValidMove(oldX, oldY - 1))
+                    newY--;
+                else if (IsValidMove(oldX, oldY + 1))
+                    newY++;
+                else if (IsValidMove(oldX - 1, oldY))
+                    newX--;
+                else if (IsValidMove(oldX + 1, oldY))
+                    newX++;
 
-                        for (int i = 0; i < Maze.chargingpads.Count; i++)
+                if (newX != oldX || newY != oldY)
+                {
+                    robot.position.x = newX;
+                    robot.position.y = newY;
+
+                    bool restored = false;
+                    foreach (var pad in Maze.chargingpads)
+                    {
+                        if (pad.position.x == oldX && pad.position.y == oldY)
                         {
-                            if (Maze.chargingpads[i].position.x == oldX && Maze.chargingpads[i].position.y == oldY)
-                            {
-                                matrixk[oldX][oldY] = Maze.chargingpads[i].id;
-                                break;
-                            }
-                            else
-                            {
-                                matrixk[oldX][oldY] = 0;
-
-                            }
+                            matrixk[oldX][oldY] = pad.id;
+                            restored = true;
+                            break;
                         }
-                        matrixk[newX][newY] = robot.id;
-
-                        Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
-                        Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
-
-                        panelGrid.Invalidate(oldRect);
-                        panelGrid.Invalidate(newRect);
                     }
+                    if (!restored)
+                        matrixk[oldX][oldY] = 0;
 
-                    if (newX == Maze.trucks[0].position.x && newY == Maze.trucks[0].position.y)
-                    {
-                        fin = true;
-                        RobotMove.Stop();
-                    }
+                    matrixk[newX][newY] = robot.id;
+
+                    panelGrid.Invalidate(new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize));
+                    panelGrid.Invalidate(new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize));
+                }
+
+                if (newX == truck.position.x && newY == truck.position.y)
+                {
+                    RobotMove.Stop();
+                    break;
                 }
             }
         }
+
         private void panelGrid_Paint(object sender, PaintEventArgs e)
         {
 

@@ -38,6 +38,8 @@ namespace DK_beadando
         public Robotstate RobotState { get; set; }
         public int BatteryLevel { get; set; }
         public Task task { get; set; }
+        public List<Targy> Items { get; set; } = new List<Targy>();
+
 
     }
     public class Task
