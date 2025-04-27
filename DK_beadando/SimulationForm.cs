@@ -19,9 +19,9 @@ namespace DK_beadando
         public MazeData Maze { get; private set; }
         private Form1 _form1;
         public int[][] matrixk;
-        private Queue<Point> currentPath = new Queue<Point>();
         public int gridSize = 35;
         public int firstgen = 0;
+        public Random rand = new Random();
 
         public SimulationForm(Form1 form1)
         {
@@ -33,7 +33,6 @@ namespace DK_beadando
             this.KeyPreview = true;
 
 
-            RobotMove.Start();
         }
 
         private void SimulationForm_KeyDown(object sender, KeyEventArgs e)
@@ -83,11 +82,6 @@ namespace DK_beadando
 
         }
 
-        private void FindWay()
-        {
-
-        }
-
 
         private bool IsValidMove(int x, int y)
         {
@@ -117,18 +111,39 @@ namespace DK_beadando
             {
                 MessageBox.Show("A JSON fájl nem található: " + jsonFilePath);
             }
-        ShelfPrint();
-        TaskMaker();
-        AddTasksToRobots();
-        TasksPrint();
 
-        RobotMove.Start();
+
+            int a = 0;
+            int b = 0;
+            int c = 0;
+            a = AddItemsToShelves();
+            if (a == 1)
+            {
+                b = TaskMaker();
+            }
+            if (b == 1)
+            {
+                c = AddTasksToRobots();
+            }
+            if (c == 1)
+            {
+                foreach (var r in Maze.robots)
+                {
+                    if(r.task != null)
+                    {
+                        r.targetShelves = SelectTargetShelves(r);
+                        r.status = RobotStatus.active;
+                    }
+
+                }
+                RobotMove.Start();
+            }
+
         }
+        
 
-        private void TaskMaker()
+        private int TaskMaker()
         {
-            Random rand = new Random();
-            int random;
             Targy newitem = new Targy();
             foreach (var truck in Maze.trucks)
             {
@@ -149,7 +164,8 @@ namespace DK_beadando
                                 newitem = new Targy
                                 {
                                     TargyId = item.TargyId,
-                                    Mennyiseg = rand.Next(1, item.Mennyiseg + 1)
+                                    Mennyiseg = rand.Next(1, item.Mennyiseg + 1),
+                                    Status = ItemsStatus.AVAILABLE
                                 };
 
                                 Maze.tasks.Last().Items.Add(newitem);
@@ -158,8 +174,9 @@ namespace DK_beadando
                     }
                 }
             }
+            return 1;
         }
-        private void AddTasksToRobots()
+        private int AddTasksToRobots()
         {
             int i = 0;
             foreach (var robot in Maze.robots)
@@ -174,24 +191,23 @@ namespace DK_beadando
                     robot.task = null;
                 }
             }
+            return 1;
         }
 
         private void ShelfPrint()
         {
-            foreach(var szekreny in Maze.shelves)
+            foreach (var szekreny in Maze.shelves)
             {
-                if(szekreny.Targyak.Count != 0)
+                if (szekreny.Targyak.Count != 0)
                 {
                     szekreny.Targyak = szekreny.Targyak.OrderBy(item => item.TargyId).ToList();
                     richTextBox1.AppendText($"Shelf: {szekreny.id}\n");
                     foreach (var item in szekreny.Targyak)
                     {
-                        richTextBox1.AppendText($"\tItem: {item.TargyId}, Mennyiség: {item.Mennyiseg}\n");
+                        richTextBox1.AppendText($"\tItem: {item.TargyId}, DB: {item.Mennyiseg} {item.Status}\n");
                     }
                 }
             }
-            richTextBox1.AppendText("--------------------------------------\n");
-
         }
         private void TasksPrint()
         {
@@ -206,14 +222,13 @@ namespace DK_beadando
                         richTextBox1.AppendText($"\tItem: {RobotItem.TargyId}, Mennyiség: {RobotItem.Mennyiseg}\n");
                     }
                 }
-                else { break; };
+                else { break; }
+                ;
             }
         }
 
-
         private void InitializeMatrixFromData()
         {
-            Random rand = new Random();
             int width = Maze.matrix.width;
             int height = Maze.matrix.height;
             int t = 0;
@@ -289,122 +304,93 @@ namespace DK_beadando
                 }
             }
             matrixk = grid;
-            foreach (var szekreny in Maze.shelves)
+        }
+        private int AddItemsToShelves()
+        {
+            foreach (var s in Maze.shelves)
             {
                 if (rand.NextDouble() < 0.2)
                 {
-                    int darabTargy = rand.Next(1, 4);
-                    for (int i = 0; i < darabTargy; i++)
+                    int ItemsAmount = rand.Next(1, 4);
+                    for (int i = 0; i < ItemsAmount; i++)
                     {
-                        var ujTargy = new Targy
+                        var newitem = new Targy
                         {
                             TargyId = rand.Next(1, 10),
-                            Mennyiseg = rand.Next(1, 100)
+                            Mennyiseg = rand.Next(1, 100),
+                            Status = ItemsStatus.AVAILABLE,
                         };
 
-                        szekreny.Targyak.Add(ujTargy);
+                        s.Targyak.Add(newitem);
 
                     }
                 }
             }
-
+            return 1;
         }
-
-        public Shelf SelectMostEfficientShelf(Robot robot, List<Shelf> shelves)
+        private List<Shelf> SelectTargetShelves(Robot robot)
         {
-            var needed = robot.task.Items.ToDictionary(x => x.TargyId, x => x.Mennyiseg);
-
-            Shelf bestShelf = null;
-            double bestScore = double.NegativeInfinity;
-
-            foreach (var shelf in shelves)
+            if (robot.task == null)
             {
-                var available = shelf.Targyak
-                    .Where(t => needed.ContainsKey(t.TargyId))
-                    .Select(t => Math.Min(t.Mennyiseg, needed[t.TargyId]))
-                    .Sum();
-
-                if (available == 0) continue;
-
-                int dist = Math.Abs(robot.position.x - shelf.position.x)
-                         + Math.Abs(robot.position.y - shelf.position.y);
-
-                double score = available / (double)(dist + 1);
-
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestShelf = shelf;
-                }
+                return null;
             }
 
-            return bestShelf;
-        }
-        private void RobotMove_Tick(object sender, EventArgs e)
-        {
-            foreach (var robot in Maze.robots.Where(r => r.status == RobotStatus.active && r.task != null))
+            List<Shelf> targetShelves = new List<Shelf>();
+            int itemsCount = robot.task.Items.Count;
+            int foundItems = 0;
+
+            foreach (var taskItem in robot.task.Items)
             {
-                var targetShelf = SelectMostEfficientShelf(robot, Maze.shelves);
-                if (targetShelf == null)
+                bool itemFound = false;
+
+                foreach (var shelf in Maze.shelves)
                 {
-                    break;
-                }
-
-                var truck = Maze.trucks.FirstOrDefault(t => t.id == robot.task.TruckId);
-                if (truck == null)
-                    continue;
-
-                int oldX = robot.position.x;
-                int oldY = robot.position.y;
-                int newX = oldX;
-                int newY = oldY;
-
-                if (IsValidMove(oldX, oldY - 1) && oldY > targetShelf.position.y)
-                    newY--;
-                else if (IsValidMove(oldX, oldY + 1) && oldY < targetShelf.position.y)
-                    newY++;
-                else if (IsValidMove(oldX - 1, oldY) && oldX > targetShelf.position.x)
-                    newX--;
-                else if (IsValidMove(oldX + 1, oldY) && oldX < targetShelf.position.x)
-                    newX++;
-                else if (IsValidMove(oldX, oldY - 1))
-                    newY--;
-                else if (IsValidMove(oldX, oldY + 1))
-                    newY++;
-                else if (IsValidMove(oldX - 1, oldY))
-                    newX--;
-                else if (IsValidMove(oldX + 1, oldY))
-                    newX++;
-
-                if (newX != oldX || newY != oldY)
-                {
-                    robot.position.x = newX;
-                    robot.position.y = newY;
-
-                    bool restored = false;
-                    foreach (var pad in Maze.chargingpads)
+                    foreach (var shelfItem in shelf.Targyak)
                     {
-                        if (pad.position.x == oldX && pad.position.y == oldY)
+                        if (taskItem.TargyId == shelfItem.TargyId &&
+                            taskItem.Mennyiseg <= shelfItem.Mennyiseg &&
+                            shelfItem.Status == ItemsStatus.AVAILABLE &&
+                            taskItem.Status == ItemsStatus.AVAILABLE)
                         {
-                            matrixk[oldX][oldY] = pad.id;
-                            restored = true;
+                            if (shelfItem.Mennyiseg > taskItem.Mennyiseg)
+                            {
+                                Targy newItem = new Targy
+                                {
+                                    TargyId = shelfItem.TargyId,
+                                    Mennyiseg = shelfItem.Mennyiseg - taskItem.Mennyiseg,
+                                    Status = ItemsStatus.AVAILABLE
+                                };
+                                shelf.Targyak.Add(newItem);
+                            }
+
+                            shelfItem.Mennyiseg = taskItem.Mennyiseg;
+                            shelfItem.Status = ItemsStatus.RESERVED;
+                            taskItem.Status = ItemsStatus.FOUND;
+
+                            foundItems++;
+                            itemFound = true;
+
+                            if (!targetShelves.Contains(shelf))
+                            {
+                                targetShelves.Add(shelf);
+                            }
+
                             break;
                         }
                     }
-                    if (!restored)
-                        matrixk[oldX][oldY] = 0;
 
-                    matrixk[newX][newY] = robot.id;
-
-                    panelGrid.Invalidate(new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize));
-                    panelGrid.Invalidate(new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize));
+                    if (itemFound)
+                        break;
                 }
+            }
 
-                if (newX == truck.position.x && newY == truck.position.y)
-                {
-                    RobotMove.Stop();
-                    break;
-                }
+            if (foundItems > 0)
+            {
+                return targetShelves;
+            }
+            else
+            {
+                return null;
             }
         }
 
@@ -539,8 +525,6 @@ namespace DK_beadando
                                         cellRect.Y + (gridSize - textSize.Height) / 2);
             g.DrawString(text, font, Brushes.Black, textPos);
         }
-
-
         private void ShelvesPaint(int i, int j, Rectangle cellRect, Graphics g)
         {
             for (int r = 0; r < Maze.shelves.Count; r++)
@@ -560,7 +544,6 @@ namespace DK_beadando
                 }
             }
         }
-
         private void ChargingpadPaint(int i, int j, Rectangle cellRect, Graphics g)
         {
             for (int r = 0; r < Maze.chargingpads.Count; r++)
@@ -573,7 +556,7 @@ namespace DK_beadando
                     switch (Maze.chargingpads[r].id)
                     {
                         case 1001:
-                             text = text + "1";
+                            text = text + "1";
                             break;
                         case 1002:
                             text = text + "2";
@@ -619,5 +602,43 @@ namespace DK_beadando
             _form1.Show();
             this.Close();
         }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            richTextBox1.Clear();
+
+            ShelfPrint();
+        }
+        private void PrintTargetShelves(List<Shelf> shelves)
+        {
+            if (shelves != null)
+                foreach (var shelf in shelves)
+                {
+                    richTextBox1.AppendText($"\tShelf ID: {shelf.id}\n");
+                }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            richTextBox1.Clear();
+            TasksPrint();
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            richTextBox1.Clear();
+
+
+            foreach (var r in Maze.robots)
+            {
+                if (r.task != null)
+                {
+                    richTextBox1.AppendText($"Robot: {r.id}\n");
+                    PrintTargetShelves(r.targetShelves);
+                }
+            }
+        }
+
+
     }
 }

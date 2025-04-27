@@ -30,6 +30,14 @@ namespace DK_beadando
         Free,
         Error
     }
+    public enum ItemsStatus
+    {
+        AVAILABLE,
+        RESERVED,
+        UNAVALIABLE,
+        FOUND,
+        DAMAGED
+    }
     public class Robot
     {
         public int id { get; set; }
@@ -38,8 +46,9 @@ namespace DK_beadando
         public Robotstate RobotState { get; set; }
         public int BatteryLevel { get; set; }
         public Task task { get; set; }
-        public List<Targy> Items { get; set; } = new List<Targy>();
-
+        
+        public List<Shelf> targetShelves { get; set; } = new List<Shelf>();
+        public List<Point> Path { get; set; } = new List<Point>();
 
     }
     public class Task
@@ -73,6 +82,7 @@ namespace DK_beadando
     {
         public int TargyId { get; set; }
         public int Mennyiseg { get; set; }
+        public ItemsStatus Status { get; set; }
     }
 
     public class Matrix
