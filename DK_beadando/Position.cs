@@ -48,6 +48,9 @@ namespace DK_beadando
         public Task task { get; set; }
         public List<Shelf> targetShelves { get; set; } = new List<Shelf>();
         public List<Point> Path = new List<Point>();
+        public int WaitingTime { get; set; } = 0; // új mező
+
+
     }
     public class Task
     {

@@ -69,6 +69,7 @@ namespace DK_beadando
         }
         private void PlayerMoved(int oldX, int oldY, int newX, int newY)
         {
+            int padflag = 0;
 
             matrixk[oldX][oldY] = 0;
 
@@ -76,7 +77,20 @@ namespace DK_beadando
 
             Maze.member.position.x = newX;
             Maze.member.position.y = newY;
+            foreach (var pads in Maze.chargingpads)
+            {
+                if (pads.position.x == oldX && pads.position.y == oldY)
+                {
+                    matrixk[oldX][oldY] = pads.id;
+                    padflag = 1;
+                    break;
+                }
+            }
 
+            if (padflag == 0)
+            {
+                matrixk[oldX][oldY] = 0;
+            }
             Rectangle oldRect = new Rectangle(oldX * gridSize, oldY * gridSize, gridSize, gridSize);
             Rectangle newRect = new Rectangle(newX * gridSize, newY * gridSize, gridSize, gridSize);
             panelGrid.Invalidate(oldRect);
@@ -92,8 +106,7 @@ namespace DK_beadando
             if (x < 0 || x >= Maze.matrix.width || y < 0 || y >= Maze.matrix.height || (matrixk[x][y] >= 1 && matrixk[x][y] < 1000))
                 return false;
 
-            if (matrixk[x][y] == 0 || matrixk[x][y] >= 1000)
-                return true;
+
 
             return true;
         }
@@ -166,31 +179,123 @@ namespace DK_beadando
             // Ha nincs út
             return null;
         }
+        private List<List<T>> GetPermutations<T>(List<T> list, int length)
+        {
+            var result = new List<List<T>>();
+            Permute(new List<T>(), list, length, result);
+            return result;
+        }
+
+        private void Permute<T>(List<T> prefix, List<T> remaining, int length, List<List<T>> result)
+        {
+            if (prefix.Count == length)
+            {
+                result.Add(new List<T>(prefix));
+                return;
+            }
+
+            for (int i = 0; i < remaining.Count; i++)
+            {
+                var next = remaining[i];
+                var newRemaining = new List<T>(remaining);
+                newRemaining.RemoveAt(i);
+                prefix.Add(next);
+                Permute(prefix, newRemaining, length, result);
+                prefix.RemoveAt(prefix.Count - 1);
+            }
+        }
+
+
+        private List<Shelf> OptimizeShelfOrder(Point start, List<Shelf> shelves)
+        {
+            var bestOrder = new List<Shelf>();
+            int bestCost = int.MaxValue;
+            if(shelves == null)
+            {
+                return bestOrder;
+            }
+            foreach (var permutation in GetPermutations(shelves, shelves.Count))
+            {
+                Point current = start;
+                int totalCost = 0;
+                bool allReachable = true;
+
+                foreach (var shelf in permutation)
+                {
+                    var path = FindPath(current, new Point(shelf.position.x, shelf.position.y));
+                    if (path == null)
+                    {
+                        allReachable = false;
+                        break;
+                    }
+                    totalCost += path.Count;
+                    current = new Point(shelf.position.x, shelf.position.y);
+                }
+
+                if (allReachable && totalCost < bestCost)
+                {
+                    bestCost = totalCost;
+                    bestOrder = permutation.ToList();
+                }
+            }
+
+            return bestOrder;
+        }
 
         // 5) Újratervező metódus
         private void CalculateRobotPath(Robot robot)
         {
+
+            var optimal = OptimizeShelfOrder(new Point(robot.position.x, robot.position.y),
+                robot.targetShelves);
+            if (optimal.Count > 0)
+                robot.targetShelves = optimal;
             robot.Path.Clear();
             Point current = new Point(robot.position.x, robot.position.y);
 
-            if (robot.task == null || robot.targetShelves.Count == 0)
-                return;
 
             // Polcokhoz vezető út
             foreach (var shelf in robot.targetShelves)
             {
-                var shelfP = new Point(shelf.position.x, shelf.position.y);
-                var segment = FindPath(current, shelfP);
+                Point shelfP = new Point(shelf.position.x, shelf.position.y);
+                Point? targetAdjacent = null;
+
+                // Ellenőrizzük az alatta és felette lévő mezőket (fel-le irány)
+                int[] dx = { 0, 0 };
+                int[] dy = { -1, 1 }; // fel, le
+
+                for (int i = 0; i < 2; i++)
+                {
+                    int nx = shelfP.X + dx[i];
+                    int ny = shelfP.Y + dy[i];
+
+                    if (nx >= 0 && nx < Maze.matrix.width && ny >= 0 && ny < Maze.matrix.height)
+                    {
+                        if (IsValidMove(nx, ny))
+                        {
+                            targetAdjacent = new Point(nx, ny);
+                            break;
+                        }
+                    }
+                }
+
+                if (targetAdjacent == null)
+                {
+                    robot.Path.Clear();
+                    return; // nincs elérhető mező a polc mellett
+                }
+
+                var segment = FindPath(current, targetAdjacent.Value);
                 if (segment == null || segment.Count == 0)
                 {
-                    robot.Path.Clear(); // nem tudunk odajutni, inkább leállítjuk
+                    robot.Path.Clear(); // nem tudunk odajutni, leállítjuk
                     return;
                 }
 
                 if (robot.Path.Count > 0)
                     segment.RemoveAt(0);
                 robot.Path.AddRange(segment);
-                current = shelfP;
+                current = targetAdjacent.Value;
             }
 
             // Kamionhoz melléállás
@@ -236,12 +341,17 @@ namespace DK_beadando
                 }
             }
         }
-
         private void RobotMove_Tick(object sender, EventArgs e)
         {
             int padflag = 0;
             foreach (var robot in Maze.robots.Where(r => r.task != null))
             {
+                if (robot.WaitingTime > 0)
+                {
+                    robot.WaitingTime--;
+                    continue;
+                }
+
                 if (robot.Path == null || robot.Path.Count == 0)
                 {
                     CalculateRobotPath(robot);
@@ -249,43 +359,47 @@ namespace DK_beadando
                 }
 
                 var next = robot.Path[0];
-                if(matrixk[next.X][next.Y]==robot.id)
+                if (matrixk[next.X][next.Y] == robot.id)
                 {
                     robot.Path.RemoveAt(0);
                     next = robot.Path[0];
                 }
 
-                if (matrixk[next.X][next.Y] !=0 && matrixk[next.X][next.Y] <= 1000)
+                if (matrixk[next.X][next.Y] != 0 && matrixk[next.X][next.Y] <= 1000)
                 {
+                    CalculateRobotPath(robot);
                     continue;
-
                 }
+                if (robot.targetShelves.Count > 0)
+                {
+
+                    var shelf = robot.targetShelves[0];
+                    int sx = shelf.position.x;
+                    int sy = shelf.position.y;
+
+                    if ((robot.position.x == sx && robot.position.y == sy-1) ||
+                        (robot.position.x == sx && robot.position.y == sy+1))
+                    {
+                    robot.targetShelves.RemoveAt(0);
+                    robot.WaitingTime = rand.Next(1, 4);
+                        continue;
+                    }
+                }
+
                 bool canMove = true;
 
-                for (int i = 0; i < robot.targetShelves.Count; i++)
-                {
-                    var shelf = robot.targetShelves[i];
-                    int dx = Math.Abs(robot.position.x - shelf.position.x);
-                    int dy = Math.Abs(robot.position.y - shelf.position.y);
-                    if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1))
-                    {
-                        robot.targetShelves.RemoveAt(i);
-                        CalculateRobotPath(robot);
-                        break;
-                    }
-                }
-
-
+                // Kamion elérése
                 var truck = Maze.trucks.FirstOrDefault(t => t.id == robot.task.TruckId);
-                if (truck != null)
+                if (truck != null && robot.Path==null)
                 {
-                    int dx = Math.Abs(next.X - truck.position.x);
-                    int dy = Math.Abs(next.Y - truck.position.y);
-                    if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1))
+                    if (robot.position.x == truck.position.x - 1 && robot.position.y == truck.position.y)
                     {
                         robot.Path.Clear();
+                        continue;
                     }
                 }
+
+
                 if (canMove)
                 {
                     robot.Path.RemoveAt(0);
@@ -294,26 +408,33 @@ namespace DK_beadando
                     robot.position.x = next.X;
                     robot.position.y = next.Y;
 
-                    foreach (var pads in Maze.chargingpads)
+                    bool voltPad = false;
+
+                    foreach (var pad in Maze.chargingpads)
                     {
-                        if (pads.position.x == ox && pads.position.y == oy)
+                        if (pad.position.x == ox && pad.position.y == oy)
                         {
-                            matrixk[ox][oy] = pads.id;
-                            padflag = 1;
+                            matrixk[ox][oy] = pad.id;
+                            voltPad = true;
                             break;
                         }
                     }
 
-                    if (padflag == 0)
+                    if (!voltPad)
                     {
                         matrixk[ox][oy] = 0;
-                        padflag = 0;
                     }
+
                     matrixk[next.X][next.Y] = robot.id;
 
+                    robot.BatteryLevel--;
                     panelGrid.Invalidate(new Rectangle(ox * gridSize, oy * gridSize, gridSize, gridSize));
                     panelGrid.Invalidate(new Rectangle(next.X * gridSize, next.Y * gridSize, gridSize, gridSize));
-                }   
+                }
+                if(robot.Path == null && robot.targetShelves!=null)
+                {
+                    CalculateRobotPath(robot);
+                }
             }
         }
 
@@ -465,7 +586,7 @@ namespace DK_beadando
                             if (i == robot.position.x && j == robot.position.y)
                             {
                                 grid[i][j] = robot.id;
-                                robot.BatteryLevel = rand.Next(1, 101);
+                                robot.BatteryLevel = rand.Next(80, 101);
                                 t = 1;
                                 break;
                             }
@@ -863,22 +984,16 @@ namespace DK_beadando
 
             foreach (var r in Maze.robots)
             {
-                richTextBox1.AppendText($"Robot ID: {r.id}\n");
+                if (r.task != null || r.Path.Count != 0)
+                {
+                    richTextBox1.AppendText($"Robot ID: {r.id}\n");
 
-                if (r.Path == null || r.Path.Count == 0)
-                {
-                    richTextBox1.AppendText("  No path.\n");
-                }
-                else
-                {
                     for (int i = 0; i < r.Path.Count; i++)
                     {
                         var p = r.Path[i];
                         richTextBox1.AppendText($"  Step {i + 1}: ({p.X}, {p.Y})\n");
                     }
                 }
-
-                richTextBox1.AppendText("\n");
             }
         }
 
