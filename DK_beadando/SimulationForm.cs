@@ -1,6 +1,7 @@
 ﻿// A* algoritmus implementálása robot mozgáshoz
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Text;
 using System.IO;
@@ -8,8 +9,10 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using DK_beadando;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using static System.Windows.Forms.AxHost;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace DK_beadando
@@ -31,7 +34,6 @@ namespace DK_beadando
             this.panelGrid.Paint += new System.Windows.Forms.PaintEventHandler(this.panelGrid_Paint);
             this.KeyDown += new KeyEventHandler(SimulationForm_KeyDown);
             this.KeyPreview = true;
-
 
         }
 
@@ -83,9 +85,236 @@ namespace DK_beadando
         }
 
 
+        // 1) Határok + akadály ellenőrzése
         private bool IsValidMove(int x, int y)
         {
-            return x >= 0 && x <= Maze.matrix.width && y >= 0 && y <= Maze.matrix.height && (matrixk[x][y] == 0 || matrixk[x][y] >= 1000);
+
+            if (x < 0 || x >= Maze.matrix.width || y < 0 || y >= Maze.matrix.height || (matrixk[x][y] >= 1 && matrixk[x][y] < 1000))
+                return false;
+
+            if (matrixk[x][y] == 0 || matrixk[x][y] >= 1000)
+                return true;
+
+            return true;
+        }
+
+
+        // 2) Manhattan-heurisztika
+        private int Heuristic(int finX, int finY, int nodeX, int nodeY)
+        {
+            return Math.Abs(finX - nodeX) + Math.Abs(finY - nodeY);
+        }
+
+        // 3) Útvonal visszaépítése
+        private List<Point> ReconstructPath(Dictionary<Point, Point> cameFrom, Point current)
+        {
+            var path = new List<Point> { current };
+            while (cameFrom.ContainsKey(current))
+            {
+                current = cameFrom[current];
+                path.Insert(0, current);
+            }
+            return path;
+        }
+
+        // 4) A* maga
+        public List<Point> FindPath(Point start, Point goal)
+        {
+            var openSet = new PriorityQueue<Point, int>();
+            var cameFrom = new Dictionary<Point, Point>();
+            var gScore = new Dictionary<Point, int> { [start] = 0 };
+            var fScore = new Dictionary<Point, int> { [start] = Heuristic(goal.X, goal.Y, start.X, start.Y) };
+
+            openSet.Enqueue(start, fScore[start]);
+
+            int[] dx = { 0, 1, 0, -1 };
+            int[] dy = { -1, 0, 1, 0 };
+
+            while (openSet.Count > 0)
+            {
+                var current = openSet.Dequeue();
+                if (current.Equals(goal))
+                    return ReconstructPath(cameFrom, current);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    int nx = current.X + dx[i];
+                    int ny = current.Y + dy[i];
+                    var neighbor = new Point(nx, ny);
+
+                    // Ha határon kívül van, ugorjuk
+                    if (nx < 0 || nx >= Maze.matrix.width || ny < 0 || ny >= Maze.matrix.height)
+                        continue;
+
+                    // Ha nem érvényes és nem maga a cél, ugorjuk
+                    if (!IsValidMove(nx, ny) && !neighbor.Equals(goal))
+                        continue;
+
+                    int tentativeG = gScore[current] + 1;
+                    if (!gScore.ContainsKey(neighbor) || tentativeG < gScore[neighbor])
+                    {
+                        cameFrom[neighbor] = current;
+                        gScore[neighbor] = tentativeG;
+                        fScore[neighbor] = tentativeG + Heuristic(goal.X, goal.Y, nx, ny);
+
+                        if (!openSet.UnorderedItems.Any(x => x.Element.Equals(neighbor)))
+                            openSet.Enqueue(neighbor, fScore[neighbor]);
+                    }
+                }
+            }
+
+            // Ha nincs út
+            return null;
+        }
+
+        // 5) Újratervező metódus
+        private void CalculateRobotPath(Robot robot)
+        {
+            robot.Path.Clear();
+            Point current = new Point(robot.position.x, robot.position.y);
+
+            if (robot.task == null || robot.targetShelves.Count == 0)
+                return;
+
+            // Polcokhoz vezető út
+            foreach (var shelf in robot.targetShelves)
+            {
+                var shelfP = new Point(shelf.position.x, shelf.position.y);
+                var segment = FindPath(current, shelfP);
+                if (segment == null || segment.Count == 0)
+                {
+                    robot.Path.Clear(); // nem tudunk odajutni, inkább leállítjuk
+                    return;
+                }
+
+                if (robot.Path.Count > 0)
+                    segment.RemoveAt(0);
+                robot.Path.AddRange(segment);
+                current = shelfP;
+            }
+
+            // Kamionhoz melléállás
+            var truck = Maze.trucks.FirstOrDefault(t => t.id == robot.task.TruckId);
+            if (truck != null)
+            {
+                Point truckPos = new Point(truck.position.x, truck.position.y);
+                Point? adjacent = null;
+                int[] dx = { 0, 1, 0, -1 };
+                int[] dy = { -1, 0, 1, 0 };
+
+                for (int i = 0; i < 4; i++)
+                {
+                    int nx = truckPos.X + dx[i];
+                    int ny = truckPos.Y + dy[i];
+                    if (nx >= 0 && nx < Maze.matrix.width && ny >= 0 && ny < Maze.matrix.height)
+                    {
+                        if (IsValidMove(nx, ny))
+                        {
+                            adjacent = new Point(nx, ny);
+                            break;
+                        }
+                    }
+                }
+
+                if (adjacent != null)
+                {
+                    var toTruck = FindPath(current, adjacent.Value);
+                    if (toTruck != null && toTruck.Count > 0)
+                    {
+                        if (robot.Path.Count > 0)
+                            toTruck.RemoveAt(0);
+                        robot.Path.AddRange(toTruck);
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Robot {robot.id} nem tud eljutni a kamion mellé.");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"Robot {robot.id} nem talál elérhető mezőt a kamion mellett.");
+                }
+            }
+        }
+
+        private void RobotMove_Tick(object sender, EventArgs e)
+        {
+            int padflag = 0;
+            foreach (var robot in Maze.robots.Where(r => r.task != null))
+            {
+                if (robot.Path == null || robot.Path.Count == 0)
+                {
+                    CalculateRobotPath(robot);
+                    continue;
+                }
+
+                var next = robot.Path[0];
+                if(matrixk[next.X][next.Y]==robot.id)
+                {
+                    robot.Path.RemoveAt(0);
+                    next = robot.Path[0];
+                }
+
+                if (matrixk[next.X][next.Y] !=0 && matrixk[next.X][next.Y] <= 1000)
+                {
+                    continue;
+
+                }
+                bool canMove = true;
+
+                for (int i = 0; i < robot.targetShelves.Count; i++)
+                {
+                    var shelf = robot.targetShelves[i];
+                    int dx = Math.Abs(robot.position.x - shelf.position.x);
+                    int dy = Math.Abs(robot.position.y - shelf.position.y);
+                    if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1))
+                    {
+                        robot.targetShelves.RemoveAt(i);
+                        CalculateRobotPath(robot);
+                        break;
+                    }
+                }
+
+
+                var truck = Maze.trucks.FirstOrDefault(t => t.id == robot.task.TruckId);
+                if (truck != null)
+                {
+                    int dx = Math.Abs(next.X - truck.position.x);
+                    int dy = Math.Abs(next.Y - truck.position.y);
+                    if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1))
+                    {
+                        robot.Path.Clear();
+                    }
+                }
+                if (canMove)
+                {
+                    robot.Path.RemoveAt(0);
+                    int ox = robot.position.x;
+                    int oy = robot.position.y;
+                    robot.position.x = next.X;
+                    robot.position.y = next.Y;
+
+                    foreach (var pads in Maze.chargingpads)
+                    {
+                        if (pads.position.x == ox && pads.position.y == oy)
+                        {
+                            matrixk[ox][oy] = pads.id;
+                            padflag = 1;
+                            break;
+                        }
+                    }
+
+                    if (padflag == 0)
+                    {
+                        matrixk[ox][oy] = 0;
+                        padflag = 0;
+                    }
+                    matrixk[next.X][next.Y] = robot.id;
+
+                    panelGrid.Invalidate(new Rectangle(ox * gridSize, oy * gridSize, gridSize, gridSize));
+                    panelGrid.Invalidate(new Rectangle(next.X * gridSize, next.Y * gridSize, gridSize, gridSize));
+                }   
+            }
         }
 
 
@@ -129,19 +358,15 @@ namespace DK_beadando
             {
                 foreach (var r in Maze.robots)
                 {
-                    if(r.task != null)
+                    if (r.task != null)
                     {
                         r.targetShelves = SelectTargetShelves(r);
                         r.status = RobotStatus.active;
                     }
-
                 }
                 RobotMove.Start();
             }
-
         }
-        
-
         private int TaskMaker()
         {
             Targy newitem = new Targy();
@@ -178,22 +403,14 @@ namespace DK_beadando
         }
         private int AddTasksToRobots()
         {
-            int i = 0;
-            foreach (var robot in Maze.robots)
+            int taskIndex = 0; // Kezdjük a feladatok listájának elejénél
+            for (int i = Maze.robots.Count - 1; i >= 0 && taskIndex < Maze.tasks.Count; i--)
             {
-                if (i < Maze.tasks.Count)
-                {
-                    robot.task = Maze.tasks[i];
-                    i++;
-                }
-                else
-                {
-                    robot.task = null;
-                }
+                Maze.robots[i].task = Maze.tasks[taskIndex];
+                taskIndex++;
             }
             return 1;
         }
-
         private void ShelfPrint()
         {
             foreach (var szekreny in Maze.shelves)
@@ -213,7 +430,11 @@ namespace DK_beadando
         {
             foreach (var robot in Maze.robots)
             {
-                if (robot.task != null)
+                if (robot.task == null)
+                {
+                    continue;
+                }
+                else
                 {
                     robot.task.Items = robot.task.Items.OrderBy(item => item.TargyId).ToList();
                     richTextBox1.AppendText($"T{robot.task.TruckId}, R{robot.id}:\n");
@@ -222,11 +443,8 @@ namespace DK_beadando
                         richTextBox1.AppendText($"\tItem: {RobotItem.TargyId}, Mennyiség: {RobotItem.Mennyiseg}\n");
                     }
                 }
-                else { break; }
-                ;
             }
         }
-
         private void InitializeMatrixFromData()
         {
             int width = Maze.matrix.width;
@@ -639,6 +857,30 @@ namespace DK_beadando
             }
         }
 
+        private void button5_Click(object sender, EventArgs e)
+        {
+            richTextBox1.Clear();
+
+            foreach (var r in Maze.robots)
+            {
+                richTextBox1.AppendText($"Robot ID: {r.id}\n");
+
+                if (r.Path == null || r.Path.Count == 0)
+                {
+                    richTextBox1.AppendText("  No path.\n");
+                }
+                else
+                {
+                    for (int i = 0; i < r.Path.Count; i++)
+                    {
+                        var p = r.Path[i];
+                        richTextBox1.AppendText($"  Step {i + 1}: ({p.X}, {p.Y})\n");
+                    }
+                }
+
+                richTextBox1.AppendText("\n");
+            }
+        }
 
     }
 }

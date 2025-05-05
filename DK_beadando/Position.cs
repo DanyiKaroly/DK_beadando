@@ -46,10 +46,8 @@ namespace DK_beadando
         public Robotstate RobotState { get; set; }
         public int BatteryLevel { get; set; }
         public Task task { get; set; }
-        
         public List<Shelf> targetShelves { get; set; } = new List<Shelf>();
-        public List<Point> Path { get; set; } = new List<Point>();
-
+        public List<Point> Path = new List<Point>();
     }
     public class Task
     {

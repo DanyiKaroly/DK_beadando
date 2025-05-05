@@ -36,6 +36,7 @@
             button2 = new Button();
             button3 = new Button();
             button4 = new Button();
+            button5 = new Button();
             SuspendLayout();
             // 
             // button1
@@ -118,11 +119,28 @@
             button4.UseVisualStyleBackColor = false;
             button4.Click += button4_Click;
             // 
+            // button5
+            // 
+            button5.BackColor = Color.Silver;
+            button5.FlatAppearance.BorderColor = Color.FromArgb(64, 64, 64);
+            button5.FlatAppearance.MouseOverBackColor = Color.Green;
+            button5.FlatStyle = FlatStyle.Flat;
+            button5.Font = new Font("Times New Roman", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 238);
+            button5.ForeColor = Color.Black;
+            button5.Location = new Point(526, 452);
+            button5.Name = "button5";
+            button5.Size = new Size(91, 32);
+            button5.TabIndex = 8;
+            button5.Text = "Paths";
+            button5.UseVisualStyleBackColor = false;
+            button5.Click += button5_Click;
+            // 
             // SimulationForm
             // 
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ClientSize = new Size(784, 511);
             ControlBox = false;
+            Controls.Add(button5);
             Controls.Add(button4);
             Controls.Add(button3);
             Controls.Add(button2);
@@ -147,5 +165,6 @@
         private Button button2;
         private Button button3;
         private Button button4;
+        private Button button5;
     }
 }
