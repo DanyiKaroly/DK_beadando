@@ -809,8 +809,8 @@ namespace DK_beadando
         }
         private void ZerokPaint(int i, int j, Rectangle cellRect, Graphics g)
         {
-            g.FillRectangle(Brushes.White, cellRect);
-            g.DrawRectangle(Pens.Black, cellRect);
+            g.FillRectangle(Brushes.Black, cellRect);
+            g.DrawRectangle(Pens.White, cellRect);
         }
         private void truckPaint(int i, int j, Rectangle cellRect, Graphics g)
         {
@@ -820,7 +820,7 @@ namespace DK_beadando
                 {
 
                     g.FillRectangle(new SolidBrush(Color.FromArgb(255, 255, 153)), cellRect);
-                    g.DrawRectangle(Pens.Black, cellRect);
+                    g.DrawRectangle(Pens.White, cellRect);
 
                     string text = "T" + Maze.trucks[r].id.ToString();
                     var font = this.Font;
@@ -839,15 +839,15 @@ namespace DK_beadando
                 if (matrixk[i][j] == Maze.robots[r].id)
                 {
 
-                    g.FillRectangle(Brushes.LightBlue, cellRect);
-                    g.DrawRectangle(Pens.Black, cellRect);
+                    g.FillRectangle(new SolidBrush(Color.FromArgb(0x00, 0x57, 0xE9)), cellRect);
+                    g.DrawRectangle(Pens.White, cellRect);
 
                     string text = "R" + Maze.robots[r].id.ToString();
                     var font = this.Font;
                     SizeF textSize = g.MeasureString(text, font);
                     PointF textPos = new PointF(cellRect.X + (gridSize - textSize.Width) / 2,
                                                 cellRect.Y + (gridSize - textSize.Height) / 2);
-                    g.DrawString(text, font, Brushes.Black, textPos);
+                    g.DrawString(text, font, Brushes.White, textPos);
                     break;
                 }
             }
@@ -855,7 +855,7 @@ namespace DK_beadando
         private void PlayerPaint(int i, int j, Rectangle cellRect, Graphics g)
         {
             g.FillRectangle(new SolidBrush(Color.FromArgb(144, 238, 144)), cellRect);
-            g.DrawRectangle(Pens.Black, cellRect);
+            g.DrawRectangle(Pens.White, cellRect);
 
             string text = "P";
             var font = this.Font;
@@ -871,7 +871,7 @@ namespace DK_beadando
                 if (matrixk[i][j] == Maze.shelves[r].id)
                 {
                     g.FillRectangle(new SolidBrush(Color.FromArgb(255, 153, 0)), cellRect);
-                    g.DrawRectangle(Pens.Black, cellRect);
+                    g.DrawRectangle(Pens.White, cellRect);
 
                     string text = "S" + Maze.shelves[r].id.ToString();
                     var font = this.Font;
@@ -890,7 +890,7 @@ namespace DK_beadando
                 if (matrixk[i][j] == Maze.chargingpads[r].id)
                 {
                     g.FillRectangle(new SolidBrush(Color.FromArgb(102, 178, 255)), cellRect);
-                    g.DrawRectangle(Pens.Black, cellRect);
+                    g.DrawRectangle(Pens.White, cellRect);
                     string text = "C";
                     switch (Maze.chargingpads[r].id)
                     {
